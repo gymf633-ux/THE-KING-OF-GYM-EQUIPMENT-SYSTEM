@@ -1,0 +1,15 @@
+{
+  "name": "gym-crm-backend",
+  "version": "1.0.0",
+  "description": "Backend API for The King of Gym Equipment CRM System",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^3.0.0"
+  }
+}

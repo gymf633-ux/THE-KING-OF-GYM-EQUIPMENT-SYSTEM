@@ -1,0 +1,12 @@
+name = "gym-crm-backend"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables for OAuth2
+# These should be set in your deployment environment or using wrangler secrets
+# For development, you can create a .dev.vars file (not committed to git)
+#
+# Example .dev.vars file:
+# GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+# GOOGLE_CLIENT_SECRET=your-client-secret
