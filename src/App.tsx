@@ -13,6 +13,10 @@ import { SalesPage } from './pages/SalesPage';
 import { SystemUpdateNotification } from './components/SystemUpdateNotification';
 import { ExcelUploadPage } from './pages/ExcelUploadPage';
 import { ExcelDashboardPage } from './pages/ExcelDashboardPage';
+import ProjectsPage from './pages/ProjectsPage';
+import RemindersPage from './pages/RemindersPage';
+import StaffPage from './pages/StaffPage';
+import ReportsPage from './pages/ReportsPage';
 
 function App() {
   return (
@@ -31,11 +35,11 @@ function App() {
           <Route path="invoices" element={<InvoicePage />} />
           <Route path="reviews" element={<ReviewsPage />} />
           <Route path="gbp" element={<GBPOptimizerPage />} />
-          <Route path="projects" element={<div className="p-8">Projects - Coming Soon</div>} />
-          <Route path="reminders" element={<div className="p-8">Reminders - Coming Soon</div>} />
-          <Route path="staff" element={<div className="p-8">Staff - Coming Soon</div>} />
+          <Route path="projects" element={<ProjectsPage />} />
+          <Route path="reminders" element={<RemindersPage />} />
+          <Route path="staff" element={<StaffPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="reports" element={<div className="p-8">Reports - Coming Soon</div>} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="excel-upload" element={<ExcelUploadPage />} />
           <Route path="excel-dashboard/:id" element={<ExcelDashboardPage />} />
         </Route>

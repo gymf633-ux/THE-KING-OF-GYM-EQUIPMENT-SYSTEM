@@ -5,6 +5,7 @@ export type RepeatType = 'none' | 'daily' | 'weekly';
 export interface Reminder {
   id: number;
   title: string;
+  description?: string;
   due_at: string;
   object_type: ObjectType;
   object_id?: number | null;
