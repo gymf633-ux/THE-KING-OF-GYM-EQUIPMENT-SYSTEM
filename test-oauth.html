@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OAuth Flow Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .status {
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 5px;
+      font-weight: 500;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    .status.warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+    button {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px 10px 10px 0;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #357ae8;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .code-block {
+      background: #f4f4f4;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      margin: 10px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+    .test-section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 5px;
+    }
+    .test-section h2 {
+      color: #555;
+      margin-top: 0;
+    }
+    .step {
+      margin: 15px 0;
+      padding: 15px;
+      background: white;
+      border-left: 4px solid #4285f4;
+    }
+    .step-title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(0,0,0,0.1);
+      border-radius: 50%;
+      border-top-color: #4285f4;
+      animation: spin 0.8s linear infinite;
+      margin-left: 10px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 OAuth Flow Test Suite</h1>
+    <p>Comprehensive testing for Google OAuth2 integration</p>
+
+    <!-- OAuth Status -->
+    <div id="oauth-status"></div>
+
+    <!-- Test Sections -->
+    <div class="test-section">
+      <h2>📋 Test Steps</h2>
+      
+      <div class="step">
+        <div class="step-title">Step 1: Check OAuth Configuration</div>
+        <p>Verify that OAuth credentials are configured on the backend.</p>
+        <button id="test-config">Test Configuration</button>
+        <div id="config-result"></div>
+      </div>
+
+      <div class="step">
+        <div class="step-title">Step 2: Test OAuth Initiation</div>
+        <p>Request OAuth authorization URL from the backend.</p>
+        <button id="test-initiate">Get Authorization URL</button>
+        <div id="initiate-result"></div>
+      </div>
+
+      <div class="step">
+        <div class="step-title">Step 3: Complete OAuth Flow</div>
+        <p>Open authorization URL and complete the Google sign-in process.</p>
+        <button id="start-oauth" disabled>Start OAuth Flow</button>
+        <div id="oauth-result"></div>
+      </div>
+
+      <div class="step">
+        <div class="step-title">Step 4: Verify Token Storage</div>
+        <p>Check that access tokens are properly stored after authorization.</p>
+        <button id="verify-tokens">Verify Tokens</button>
+        <div id="verify-result"></div>
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h2>📖 Setup Instructions</h2>
+      <ol>
+        <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+        <li>Enable "Google My Business API"</li>
+        <li>Create OAuth 2.0 Client ID (Web application)</li>
+        <li>Add redirect URI: <code>https://backend.youware.com/api/oauth2/google/callback</code></li>
+        <li>Configure credentials using:
+          <div class="code-block">
+wrangler secret put GOOGLE_CLIENT_ID<br>
+wrangler secret put GOOGLE_CLIENT_SECRET
+          </div>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://backend.youware.com';
+    const PROJECT_ID = '1a68d3e1-1781-454e-8bcc-aa7a2851934e';
+    
+    let authUrl = null;
+    let oauthWindow = null;
+
+    // Check for OAuth callback parameters
+    window.addEventListener('load', () => {
+      const params = new URLSearchParams(window.location.search);
+      const oauthStatus = params.get('oauth');
+      const message = params.get('message');
+
+      if (oauthStatus === 'success') {
+        showStatus('oauth-status', 'success', '✅ OAuth authorization successful! Tokens have been stored.');
+        // Enable verify button
+        document.getElementById('verify-tokens').disabled = false;
+      } else if (oauthStatus === 'error') {
+        showStatus('oauth-status', 'error', `❌ OAuth authorization failed: ${decodeURIComponent(message || 'Unknown error')}`);
+      }
+
+      // Clear URL parameters
+      if (oauthStatus) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    });
+
+    // Helper function to show status messages
+    function showStatus(elementId, type, message) {
+      const element = document.getElementById(elementId);
+      element.className = `status ${type}`;
+      element.innerHTML = message;
+    }
+
+    // Test 1: Check OAuth Configuration
+    document.getElementById('test-config').addEventListener('click', async () => {
+      const button = document.getElementById('test-config');
+      const resultDiv = document.getElementById('config-result');
+      
+      button.disabled = true;
+      resultDiv.innerHTML = '<span class="loading"></span> Checking configuration...';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/gbp/config`, {
+          method: 'GET',
+          headers: {
+            'X-Project-Id': PROJECT_ID,
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          if (data.configured) {
+            showStatus('config-result', 'success', '✅ OAuth credentials are configured!');
+          } else {
+            showStatus('config-result', 'warning', '⚠️ OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.');
+          }
+        } else {
+          showStatus('config-result', 'error', `❌ Configuration check failed: ${data.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        showStatus('config-result', 'error', `❌ Network error: ${error.message}`);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    // Test 2: Test OAuth Initiation
+    document.getElementById('test-initiate').addEventListener('click', async () => {
+      const button = document.getElementById('test-initiate');
+      const resultDiv = document.getElementById('initiate-result');
+      
+      button.disabled = true;
+      resultDiv.innerHTML = '<span class="loading"></span> Requesting authorization URL...';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/oauth2/google/auth`, {
+          method: 'GET',
+          headers: {
+            'X-Project-Id': PROJECT_ID,
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success && data.auth_url) {
+          authUrl = data.auth_url;
+          
+          let html = '<div class="status success">✅ Authorization URL generated successfully!</div>';
+          html += '<div class="code-block" style="word-break: break-all;">' + authUrl + '</div>';
+          html += '<p><strong>URL Parameters:</strong></p><ul>';
+          
+          const url = new URL(authUrl);
+          url.searchParams.forEach((value, key) => {
+            html += `<li><strong>${key}:</strong> ${key === 'state' ? value.substring(0, 20) + '...' : value}</li>`;
+          });
+          html += '</ul>';
+          
+          resultDiv.innerHTML = html;
+          
+          // Enable the Start OAuth button
+          document.getElementById('start-oauth').disabled = false;
+        } else {
+          showStatus('initiate-result', 'error', `❌ Failed to generate authorization URL: ${data.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        showStatus('initiate-result', 'error', `❌ Network error: ${error.message}`);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    // Test 3: Start OAuth Flow
+    document.getElementById('start-oauth').addEventListener('click', () => {
+      if (!authUrl) {
+        showStatus('oauth-result', 'error', '❌ Please get the authorization URL first (Step 2)');
+        return;
+      }
+
+      showStatus('oauth-result', 'info', '🔄 Opening authorization window... Please complete the sign-in process.');
+
+      // Open OAuth window
+      const width = 600;
+      const height = 700;
+      const left = (screen.width - width) / 2;
+      const top = (screen.height - height) / 2;
+      
+      oauthWindow = window.open(
+        authUrl,
+        'oauth-window',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+
+      // Monitor window closure
+      const checkWindow = setInterval(() => {
+        if (oauthWindow && oauthWindow.closed) {
+          clearInterval(checkWindow);
+          showStatus('oauth-result', 'info', '⏳ Authorization window closed. Waiting for callback...');
+        }
+      }, 500);
+    });
+
+    // Test 4: Verify Token Storage
+    document.getElementById('verify-tokens').addEventListener('click', async () => {
+      const button = document.getElementById('verify-tokens');
+      const resultDiv = document.getElementById('verify-result');
+      
+      button.disabled = true;
+      resultDiv.innerHTML = '<span class="loading"></span> Checking token storage...';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/gbp/config`, {
+          method: 'GET',
+          headers: {
+            'X-Project-Id': PROJECT_ID,
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          let html = '<div class="status success">✅ Token verification complete!</div>';
+          html += '<ul>';
+          html += `<li><strong>Configured:</strong> ${data.configured ? '✅ Yes' : '❌ No'}</li>`;
+          html += `<li><strong>Has Account ID:</strong> ${data.has_account ? '✅ Yes' : '❌ No'}</li>`;
+          html += `<li><strong>Has Location ID:</strong> ${data.has_location ? '✅ Yes' : '❌ No'}</li>`;
+          html += `<li><strong>Token Expiry:</strong> ${data.token_expiry || 'N/A'}</li>`;
+          html += '</ul>';
+
+          if (data.configured && data.token_expiry) {
+            const expiry = new Date(data.token_expiry);
+            const now = new Date();
+            const hoursUntilExpiry = ((expiry - now) / (1000 * 60 * 60)).toFixed(1);
+            
+            if (hoursUntilExpiry > 0) {
+              html += `<p class="status info">⏰ Token expires in ${hoursUntilExpiry} hours</p>`;
+            } else {
+              html += `<p class="status warning">⚠️ Token has expired and will be auto-refreshed on next API call</p>`;
+            }
+          }
+
+          resultDiv.innerHTML = html;
+        } else {
+          showStatus('verify-result', 'error', `❌ Verification failed: ${data.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        showStatus('verify-result', 'error', `❌ Network error: ${error.message}`);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
